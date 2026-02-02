@@ -1,0 +1,279 @@
+#!/usr/bin/env python3
+import subprocess
+import sys
+import os
+
+dictTransStr = {
+    'C': {
+        'speaker': 'Speaker',
+        'mics': 'Mics',
+        'volume': 'Volume',
+        'screen': 'Screen',
+        'brightness': 'Brightness',
+        'mute': 'Mute',
+        'yes': 'Yes',
+        'no': 'No',
+    },
+
+    'zh_SC': {
+        'speaker': '扬声器',
+        'mics': '麦克风',
+        'volume': '音量',
+        'screen': '屏幕',
+        'brightness': '亮度',
+        'mute': '静音',
+        'yes': '是',
+        'no': '否',
+    },
+    
+    'zh_TC': {
+        'speaker': '喇叭',
+        'mics': '麥克風',
+        'volume': '音量',
+        'screen': '螢幕',
+        'brightness': '亮度',
+        'mute': '靜音',
+        'yes': '是',
+        'no': '否',
+    },
+    
+    'fr': {
+        'speaker': 'Haut-parleur',
+        'mics': 'Micros',
+        'volume': 'Volume',
+        'screen': 'Écran',
+        'brightness': 'Luminosité',
+        'mute': 'Muet',
+        'yes': 'Oui',
+        'no': 'Non',
+    },
+
+    'de': {
+        'speaker': 'Lautsprecher',
+        'mics': 'Mikrofone',
+        'volume': 'Lautstärke',
+        'screen': 'Bildschirm',
+        'brightness': 'Helligkeit',
+        'mute': 'Stummschalten',
+        'yes': 'Ja',
+        'no': 'Nein',
+    },
+    
+    'ja': {
+        'speaker': 'スピーカー',
+        'mics': 'マイク',
+        'volume': '音量',
+        'screen': '画面',
+        'brightness': '明るさ',
+        'mute': 'ミュート',
+        'yes': 'はい',
+        'no': 'いいえ',
+    },
+    
+    'ko': {
+        'speaker': '스피커',
+        'mics': '마이크',
+        'volume': '볼륨',
+        'screen': '화면',
+        'brightness': '밝기',
+        'mute': '음소거',
+        'yes': '예',
+        'no': '아니요',
+    },
+    
+    'ru': {
+        'speaker': 'Динамик',
+        'mics': 'Микрофоны',
+        'volume': 'Громкость',
+        'screen': 'Экран',
+        'brightness': 'Яркость',
+        'mute': 'Без звука',
+        'yes': 'Да',
+        'no': 'Нет',
+    },
+    
+    'es': {
+        'speaker': 'Altavoz',
+        'mics': 'Micrófonos',
+        'volume': 'Volumen',
+        'screen': 'Pantalla',
+        'brightness': 'Brillo',
+        'mute': 'Silencio',
+        'yes': 'Sí',
+        'no': 'No',
+    },
+    
+    'pt': {
+        'speaker': 'Alto-falante',
+        'mics': 'Microfones',
+        'volume': 'Volume',
+        'screen': 'Tela',
+        'brightness': 'Brilho',
+        'mute': 'Mudo',
+        'yes': 'Sim',
+        'no': 'Não',
+    },
+}
+
+dictTransStr["en"] = dictTransStr["C"]
+dictTransStr["zh_cn"] = dictTransStr["zh_SC"]
+dictTransStr["zh_sg"] = dictTransStr["zh_SC"]
+dictTransStr["zh_tw"] = dictTransStr["zh_TC"]
+dictTransStr["zh_hk"] = dictTransStr["zh_TC"]
+
+def get_lang_code():
+	locale_str = os.environ.get('LC_ALL') or os.environ.get('LANG')
+	if locale_str:
+		return locale_str
+	return 'C'
+
+def set_lang(lang_code):
+	for key in list(dictTransStr):
+		if key in lang_code.lower():
+			return dictTransStr[key]
+	return dictTransStr["C"]
+	
+dictStr = set_lang(get_lang_code())
+
+def runCommand(command_list):
+	try:
+		result = subprocess.run	(command_list,
+			capture_output=True,
+			text=True,
+			check=True
+		)
+		return result.stdout.strip()
+	except subprocess.CalledProcessError as e:
+		print(f"Error:\nReturn with {e.returncode}")
+		print("Stderr:\n",e.stderr)
+		print("Stdout:\n",e.stdout)
+		exit(1)
+	except FileNotFoundError:
+		print("Error:Commnadnotfount")
+		exit(1)
+	except Exception as e:
+		print(f"发生其他错误:{e}")
+		exit(1)
+
+def is_int(s):
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
+
+def is_float(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+def getDefaultSource():
+	return runCommand(["pactl","get-default-source"])
+
+def getSourceVolumeString():
+	return runCommand(["pactl","get-source-volume",getDefaultSource()])
+
+def getSourceVolumePercent():
+	volume_list = []
+	for tmp2 in [ tmp.split("/")[-1].strip() for tmp in getSourceVolumeString().split("%") ]:
+		if (is_float(tmp2)):
+			volume_list.append(float(tmp2))
+	return float(sum(volume_list)/len(volume_list))
+
+def getSourceVolumeAbs():
+	volume_list = []
+	for tmp2 in [ tmp.split("/")[0].strip() for tmp in getSourceVolumeString().split(":") ]:
+		if (is_int(tmp2)):
+			volume_list.append(int(tmp2))
+	return int(sum(volume_list)/len(volume_list))
+
+def getSourceVolumeDB():
+	volume_list = []
+	for tmp2 in [ tmp.split("/")[-1].strip() for tmp in getSourceVolumeString().split("dB") ]:
+		if (is_float(tmp2)):
+			volume_list.append(float(tmp2))
+	return float(sum(volume_list)/len(volume_list))
+
+def setSourceVolume(volume):
+	runCommand(["pactl","set-source-volume",getDefaultSource(),str(volume)])
+	return None
+changeSourceVolume = setSourceVolume
+
+def setSourceMute(arg="toggle"):
+	runCommand(["pactl","set-source-mute",getDefaultSource(),arg])
+	return None
+
+def getSourceMute(arg="toggle"):
+	return runCommand(["pactl","get-source-mute",getDefaultSource()])
+
+def main():
+	args = []
+	split_chars = {'a', 'd', 's', 'g', '+', '-', '=', 'm'}
+	mode_str = {"add","dec","set","get","mute"}
+	if (len(sys.argv) >1):
+		first_str = sys.argv[1]
+		if len(first_str) > 1 and first_str[0] in split_chars and (first_str not in mode_str):
+			leading_char = first_str[0]
+			remainder = first_str[1:]
+			args = [leading_char, remainder] + sys.argv[2:]
+		else:
+			args = sys.argv[1:]
+		if (args[0] == "set") or (args[0] == "s") or (args[0] == "="):
+			mode = "set"
+			args = args[1:]
+		elif (args[0] == "get") or (args[0] == "g"):
+			mode = "get"
+			args = args[1:]
+		elif (args[0] == "add") or(args[0] == "a")  or (args[0] == "+"):
+			mode = "add"
+			args = args[1:]
+		elif (args[0] == "dec") or (args[0] == "decrease") or (args[0] == "d") or (args[0] == "-"):
+			mode = "dec"
+			args = args[1:]
+		elif (args[0] == "mute") or (args[0] == "m"):
+			mode = "mute"
+			args = args[1:]
+		else:
+			mode = "get"
+	else:
+		mode = "get"
+		args = []
+	if (mode == "get"):
+		if (len(args) > 0 and args[0].lower() == "db"):
+			result = str(getSourceVolumeDB()) + "dB"
+		elif (len(args) > 0 and (args[0].lower() == "abs" or args[0].lower() == "absolute" or args[0].lower() == "value")):
+			result = getSourceVolumeAbs()
+		else:
+			result = str(int(getSourceVolumePercent())) + "%"
+	elif (mode == "set"):
+		if len(args) > 0:
+			setSourceVolume(str(args[0]))
+		result = str(int(getSourceVolumePercent())) + "%"
+	elif (mode == "add"):
+		if len(args) > 0:
+			changeSourceVolume("+" + str(args[0]))
+		else:
+			changeSourceVolume("+5%")
+		result = str(int(getSourceVolumePercent())) + "%"
+	elif (mode == "dec"):
+		if len(args) > 0:
+			changeSourceVolume("-" + str(args[0]))
+		else:
+			changeSourceVolume("-5%")
+		result = str(int(getSourceVolumePercent())) + "%"
+	elif (mode == "mute"):
+		if len(args) > 0 and (args[0] == "1" or args[0] == "0"):
+			setSourceMute(args[0])
+		else:
+			setSourceMute()
+		print(getSourceMute())
+		runCommand(["sh","-c","command -v notify-send && notify-send -e -t 500" + " -a " + dictStr["mics"] + " '" + dictStr["mute"] + ": " +  dictStr[getSourceMute().split()[1].strip()] + "'" ])
+		result = None
+	if result != None:
+		print(result)
+		runCommand(["sh","-c","command -v notify-send && notify-send -e -t 500" + " -a " + dictStr["mics"] + " '" + dictStr["volume"] + ": " + result + "'" ])
+		
+if __name__ == "__main__":
+	main()
