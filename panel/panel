@@ -1,0 +1,9 @@
+#!/bin/sh
+#pushd ~/.config/multi-profiles/profile.d/01-default/bin 
+#for cmd in `find ~/.config/multi-profiles/profile.d/01-default/bin -mindepth 1 -maxdepth 1`
+#do
+#	$cmd &
+#done
+#popd
+waybar -c $HOME/.config/waybar/right.json -s $HOME/.config/waybar/right.css &
+waybar -c $HOME/.config/waybar/left.json -s $HOME/.config/waybar/left.css &

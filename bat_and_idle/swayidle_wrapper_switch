@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+import subprocess
+import os
+import signal
+import time
+
+# 1. 定义你的命令列表
+# 格式：["命令名", "参数1", "参数2", ...]
+COMMANDS = [
+    ['swayidle', 'timeout', '150', 'bat_state bat wlopm --off "*"', 'resume', 'wlopm --on "*"', 'timeout', '300', 'hyprlock', 'timeout', '600', 'bat_state bat bat_state more-than 25 systemctl suspend', 'timeout', '200', 'bat_state bat bat_state less-than 25 systemctl hybrid-sleep'],
+    ['swayidle', '-w', 'before-sleep', 'hyprlock'],
+]
+
+
+PID_FILE = os.path.join(os.getenv("XDG_RUNTIME_DIR","/tmp"), ".py_managed_pids")
+
+def kill_old_processes():
+    if not os.path.exists(PID_FILE):
+        print("[-] 未发现运行中的旧进程。")
+        return False
+    with open(PID_FILE, "r") as f:
+        pids = f.read().splitlines()
+    for pid_str in pids:
+        try:
+            pid = int(pid_str)
+            print(f"[!] 正在终止旧进程 PID: {pid}")
+            # 发送 SIGTERM 信号
+            os.kill(pid, signal.SIGTERM)
+        except (ProcessLookupError, ValueError):
+            print(f"[-] 进程 {pid_str} 已经不存在，跳过。")
+        except PermissionError:
+            print(f"[X] 无权限杀掉进程 {pid_str}")
+    # 清空 PID 文件
+    os.remove(PID_FILE)
+    return True
+
+def start_new_processes():
+    new_pids = []
+    print(f"[+] 开始启动 {len(COMMANDS)} 个新进程...")
+    for cmd in COMMANDS:
+        try:
+            # 使用 Popen 非阻塞启动
+            # stdout/stderr 设置为 DEVNULL 可以防止它们占满当前终端
+            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            new_pids.append(str(proc.pid))
+            print(f"[√] 已启动: {' '.join(cmd)} (PID: {proc.pid})")
+        except Exception as e:
+            print(f"[X] 启动失败 {' '.join(cmd)}: {e}")
+    # 将新 PID 写入文件
+    with open(PID_FILE, "w") as f:
+        f.write("\n".join(new_pids))
+
+if __name__ == "__main__":
+    # 第一步：清理旧的
+    flag = kill_old_processes()
+    if not flag:
+        # 给系统一点缓冲时间
+        time.sleep(0.2)
+        # 第二步：启动新的
+        start_new_processes()
+    print("\n[OK] 所有进程已重置。")

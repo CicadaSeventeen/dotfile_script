@@ -1,0 +1,16 @@
+#!/bin/bash
+SWAYIDLE_STATE=$(eval swayidle_wrapper_flag)
+
+case $SWAYIDLE_STATE in
+	ON* )
+		echo '{"text": "ON", "alt": "enabled", "class": "on"}'
+		;;
+	OFF)
+		echo '{"text": "OFF", "alt": "disabled", "class": "off"}'
+		;;
+	*)
+		echo '{"text": "OFF", "alt": "unknown", "class": "off"}'
+		;;
+esac
+exit 0
+

@@ -1,0 +1,111 @@
+#!/bin/sh
+
+check_powerStat(){
+	AcStat=Offline
+	BatStat=Discharging
+	BatCap=0
+	for Line in /sys/class/power_supply/A*
+	do
+		[ `cat "$Line"/online` -eq 1 ] && Ac_Stat=Online
+	done
+	for Line in  /sys/class/power_supply/BAT*
+	do
+		[ -e "$Line"/capacity ] && BatCap=`cat "$Line"/capacity`
+		[ -e "$Line"/status ] && BatStat=`cat "$Line"/status`
+	done
+}
+
+ is_ac(){
+	check_powerStat
+	if [ $AcStat = "Online" ] || [ $BatStat = "Full" ] || [ $BatStat = "Charging" ]
+	then
+		return 0
+	else
+		return 1
+	fi
+}
+
+is_bat(){
+	if is_ac
+	then
+		return 1
+	else
+		return 0
+	fi
+}
+
+bat_moreThan(){
+	check_powerStat
+	if [ "$(echo "$BatCap >= $1" | bc)" -eq 1 ]
+	then
+		return 0
+	else
+		return 1
+	fi
+}
+
+bat_lessThan(){
+	check_powerStat
+	if [ "$(echo "$BatCap < $1" | bc)" -eq 1 ]
+	then
+		return 0
+	else
+		return 1
+	fi
+}
+
+if [ $# -eq 0 ]
+then
+	exit 1
+else
+	case $1 in
+		"ac")
+			shift
+			if is_ac
+			then
+				"$@"
+			fi
+			exit 0
+		;;
+		"bat")
+			shift
+			if is_bat
+			then
+				"$@"
+			fi
+			exit 0
+		;;
+		"more-than" | "more_than" | "morethan")
+			shift
+			if [ $# -eq 0 ]
+			then
+				exit 1
+			fi
+			if bat_moreThan $1
+			then
+				shift
+				"$@"
+			fi
+			exit 0
+		;;
+		"less-than" | "less_than" | "lessthan")
+			shift
+			if [ $# -eq 0 ]
+			then
+				exit 1
+			fi
+			if bat_lessThan $1
+			then
+				shift
+				"$@"
+			fi
+			exit 0
+		;;
+		*)
+			"$@"
+		;;
+	esac
+fi
+
+
+
